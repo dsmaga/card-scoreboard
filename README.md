@@ -27,7 +27,7 @@ Open `index.html` in any browser. That single file is the whole application — 
 
 ## Publishing it
 
-To put it online with GitHub Pages, upload every file in this repository to the root of a public repository, then open **Settings → Pages**, choose **Deploy from a branch**, pick `main` and the `/ (root)` folder, and save. The address appears after a minute or two.
+To put it online with GitHub Pages, upload every file in this repository to the root of a public repository, then open **Settings → Pages**, choose **Deploy from a branch**, pick your default branch (`main` or `master`, whichever the repository uses) and the `/ (root)` folder, and save. The address appears after a minute or two, in the form `https://<username>.github.io/<repository>/`.
 
 Keep `manifest.webmanifest` and the icon files next to `index.html`. Without them the app still runs, but Android will show a screenshot of the page instead of the app icon when someone installs it.
 
