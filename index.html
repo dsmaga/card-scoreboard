@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#123B2C">
 <title>Card Scoreboard</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Crect%20width%3D%2216%22%20height%3D%2216%22%20rx%3D%223%22%20fill%3D%22%23123B2C%22%2F%3E%3Cg%20transform%3D%22translate%281.1%2C1.4%29%20scale%28.83%29%22%3E%3Ccircle%20cx%3D%226.6%22%20cy%3D%2210.3%22%20r%3D%224.7%22%20fill%3D%22%23D8283C%22%2F%3E%3Crect%20x%3D%228.2%22%20y%3D%226.2%22%20width%3D%223.4%22%20height%3D%222.6%22%20rx%3D%22.5%22%20transform%3D%22rotate%28-45%209.9%207.5%29%22%20fill%3D%22%23D8283C%22%2F%3E%3Cpath%20d%3D%22M11.6%205.7c1.2-1.4%202.4-1%202.7.4%22%20fill%3D%22none%22%20stroke%3D%22%23D8283C%22%20stroke-width%3D%221.3%22%20stroke-linecap%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2214.5%22%20cy%3D%225.4%22%20r%3D%221.2%22%20fill%3D%22%23E8B840%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scoreboard">
+<meta name="description" content="Licznik punktów do gier karcianych.">
+<meta name="author" content="DKS">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
@@ -33,6 +45,9 @@ button{cursor:pointer;border:none;background:none}
 .brand{font-family:var(--display);font-weight:600;letter-spacing:.15em;text-transform:uppercase;font-size:14px;color:#EAF0EA;white-space:nowrap}
 .brand span{color:var(--gold)}
 .top .sub{font-size:12px;color:rgba(234,240,234,.55);margin-left:auto;text-align:right;line-height:1.3}
+.langs{display:flex;gap:2px;background:rgba(255,255,255,.08);border-radius:999px;padding:2px;flex:none}
+.lang{font-family:var(--display);font-size:11px;letter-spacing:.1em;color:rgba(234,240,234,.6);padding:5px 9px;border-radius:999px;line-height:1}
+.lang[aria-pressed=true]{background:var(--gold);color:#241A00}
 .back{font-family:var(--display);letter-spacing:.12em;text-transform:uppercase;font-size:13px;color:rgba(234,240,234,.75);padding:6px 0}
 
 .sheet{background:var(--paper);border-radius:14px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
@@ -118,6 +133,7 @@ input[disabled]{background:var(--paper-2);color:var(--ink-soft)}
 .win{background:var(--gold);color:#241A00;border-radius:14px;padding:18px;text-align:center;margin-bottom:14px;box-shadow:var(--shadow)}
 .win .t{font-family:var(--display);letter-spacing:.2em;text-transform:uppercase;font-size:11px;opacity:.7}
 .win .n{font-family:var(--display);font-size:30px;line-height:1.1;margin-top:3px}
+.credit{margin:24px 0 0;text-align:center;font-family:var(--display);font-weight:400;letter-spacing:.2em;text-transform:uppercase;font-size:10.5px;color:rgba(234,240,234,.32)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -129,43 +145,123 @@ input[disabled]{background:var(--paper-2);color:var(--ink-soft)}
 
 /* ====== zapis: artefakt Claude albo zwykła przeglądarka ====== */
 const KEY = "cardscoreboard:games:v2";
+const LKEY = "cardscoreboard:lang";
 const OLD_KEYS = ["kreska:games:v2"];
+
+async function readKey(k){
+  try{
+    if (window.storage && window.storage.get){
+      const r = await window.storage.get(k, false);
+      if (r && r.value) return r.value;
+    }
+  }catch(e){}
+  try{
+    const v = window.localStorage ? localStorage.getItem(k) : null;
+    if (v) return v;
+  }catch(e){}
+  return null;
+}
+async function writeKey(k, v){
+  try{ if (window.storage && window.storage.set){ await window.storage.set(k, v, false); return true; } }catch(e){}
+  try{ localStorage.setItem(k, v); return true; }catch(e){ return false; }
+}
 const store = {
   async load(){
     for (const k of [KEY, ...OLD_KEYS]){
-      try{
-        if (window.storage && window.storage.get){
-          const r = await window.storage.get(k, false);
-          if (r && r.value) return JSON.parse(r.value);
-        }
-      }catch(e){}
-      try{
-        const v = window.localStorage ? localStorage.getItem(k) : null;
-        if (v) return JSON.parse(v);
-      }catch(e){}
+      const raw = await readKey(k);
+      if (raw){ try{ return JSON.parse(raw); }catch(e){} }
     }
     return [];
   },
-  async save(games){
-    const json = JSON.stringify(games);
-    try{ if (window.storage && window.storage.set){ await window.storage.set(KEY, json, false); return true; } }catch(e){}
-    try{ localStorage.setItem(KEY, json); return true; }catch(e){ return false; }
+  save: games => writeKey(KEY, JSON.stringify(games)),
+  loadLang: () => readKey(LKEY),
+  saveLang: l => writeKey(LKEY, l)
+};
+
+/* ====== języki ====== */
+const I18N = {
+  pl: {
+    sub:"licznik punktów", backGames:"Gry", backScore:"Wynik",
+    names:{ tysiac:"Tysiąc", remik:"Remik", wlasna:"Inna gra" },
+    newGame:"Nowa gra", finishedSection:"Zakończone",
+    emptyHome:"Nic tu jeszcze nie ma.<br>Zacznij od nowej gry — wybierzesz grę, graczy i zasady.",
+    rounds:n => n + " " + (n===1 ? "runda" : (n%10>=2 && n%10<=4 && (n<12||n>14)) ? "rundy" : "rund"),
+    noRounds:"Jeszcze bez rund",
+    leading:(nm,v) => "Prowadzi " + nm + " · " + v,
+    wonBy:nm => "Zakończona · wygrał(a) " + nm,
+    setupSub:"nowa gra", hGame:"Gra", hPlayers:"Gracze",
+    playerN:i => "Gracz " + i, removePlayer:"Usuń gracza", addPlayer:"+ Dodaj gracza",
+    fourHint:"Przy czterech graczach w każdym rozdaniu jedna osoba pauzuje — aplikacja podpowie kto, po kolei.",
+    hRules:"Zasady", bombLimit:"Bomby na gracza", noBombs:"bez bomb", unlimited:"bez limitu",
+    bombValue:"Bomba daje reszcie", gameTo:"Gra do", barrier:"Próg „stoi”",
+    tysHint:"Kto rzuci bombę, nie zapisuje nic, a pozostali dostają po tyle, ile ustawisz wyżej. Próg tylko podświetla gracza na tablicy — punktów nie zmienia. Wpisz 0, żeby go wyłączyć.",
+    winnerLabel:"Wygrywa", fewest:"najmniej punktów", most:"najwięcej punktów",
+    endAt:"Koniec gry przy (puste = bez limitu)", start:"Zaczynamy",
+    gameOver:"Koniec gry", pointsWord:"punktów", standing:"stoi",
+    roundCol:"Runda", emptySheet:"Pusta karta.<br>Dodaj pierwszą rundę.",
+    addRound:"+ Dodaj rundę", keepPlaying:"Graj dalej", done:"Gotowe",
+    tapHint:"Stuknij rundę, żeby ją poprawić lub usunąć.",
+    saveError:"Nie udało się zapisać gry w tej przeglądarce — wynik zniknie po zamknięciu karty.",
+    playersCount:n => n + " graczy",
+    roundNo:n => "runda " + n, editRound:n => "edycja rundy " + n,
+    sittingOut:"Pauzuje", bomb:"Bomba",
+    bombOn:(nm,v) => "Rozdanie skasowane. " + nm + " zapisuje 0, reszta po " + v + ". Stuknij ponownie, żeby cofnąć.",
+    bombOff:"Stuknij gracza, który rzucił bombę. Liczba obok to bomby, które mu zostały.",
+    roundPoints:"Punkty w rundzie",
+    tysPointsHint:"Wpisz sumę na gracza — lewy razem z meldunkami. Nieugrany kontrakt zapisz na minusie, np. −120.",
+    otherPointsHint:"Możesz wpisywać wartości ujemne.",
+    entry:"Zapis", threwBomb:"rzucił bombę",
+    saveRound:"Zapisz rundę", deleteRound:"Usuń tę rundę",
+    confirmDelete:"Usunąć tę rundę? Sumy przeliczą się od nowa."
+  },
+  en: {
+    sub:"score keeper", backGames:"Games", backScore:"Score",
+    names:{ tysiac:"Tysiąc", remik:"Rummy", wlasna:"Other game" },
+    newGame:"New game", finishedSection:"Finished",
+    emptyHome:"Nothing here yet.<br>Start a new game — you'll pick the game, the players and the rules.",
+    rounds:n => n + (n===1 ? " round" : " rounds"),
+    noRounds:"No rounds yet",
+    leading:(nm,v) => nm + " leads · " + v,
+    wonBy:nm => "Finished · " + nm + " won",
+    setupSub:"new game", hGame:"Game", hPlayers:"Players",
+    playerN:i => "Player " + i, removePlayer:"Remove player", addPlayer:"+ Add player",
+    fourHint:"With four players one person sits out each deal — the app suggests who, in turn.",
+    hRules:"Rules", bombLimit:"Bombs per player", noBombs:"no bombs", unlimited:"unlimited",
+    bombValue:"A bomb gives the others", gameTo:"Play to", barrier:"Standing threshold",
+    tysHint:"Whoever throws a bomb scores nothing and everyone else gets the amount set above. The threshold only highlights a player on the board — it never changes the points. Enter 0 to switch it off.",
+    winnerLabel:"Winner is", fewest:"fewest points", most:"most points",
+    endAt:"Game ends at (blank = no limit)", start:"Start playing",
+    gameOver:"Game over", pointsWord:"points", standing:"standing",
+    roundCol:"Round", emptySheet:"Blank sheet.<br>Add the first round.",
+    addRound:"+ Add round", keepPlaying:"Keep playing", done:"Done",
+    tapHint:"Tap a round to correct or delete it.",
+    saveError:"This browser wouldn't save the game — the score will be gone once you close the tab.",
+    playersCount:n => n + " players",
+    roundNo:n => "round " + n, editRound:n => "editing round " + n,
+    sittingOut:"Sitting out", bomb:"Bomb",
+    bombOn:(nm,v) => "Deal cancelled. " + nm + " scores 0, everyone else gets " + v + ". Tap again to undo.",
+    bombOff:"Tap the player who threw the bomb. The number shows the bombs they have left.",
+    roundPoints:"Round points",
+    tysPointsHint:"Enter one total per player — tricks together with marriages. Write a failed contract as a negative, e.g. −120.",
+    otherPointsHint:"Negative values are allowed.",
+    entry:"Entry", threwBomb:"threw a bomb",
+    saveRound:"Save round", deleteRound:"Delete this round",
+    confirmDelete:"Delete this round? The totals will be recalculated."
   }
 };
 
 /* ====== gry ====== */
 const GAMES = {
-  tysiac: { name:"Tysiąc", minPlayers:2, maxPlayers:4, defaultPlayers:3, hasBombs:true,
+  tysiac: { minPlayers:2, maxPlayers:4, defaultPlayers:3,
             settings:{ target:1000, barrier:880, bombLimit:2, bombValue:60, winMode:"high" } },
-  remik:  { name:"Remik", minPlayers:2, maxPlayers:8, defaultPlayers:4, hasBombs:false,
+  remik:  { minPlayers:2, maxPlayers:8, defaultPlayers:4,
             settings:{ winMode:"low", endAt:500 } },
-  wlasna: { name:"Inna gra", minPlayers:2, maxPlayers:8, defaultPlayers:4, hasBombs:false,
+  wlasna: { minPlayers:2, maxPlayers:8, defaultPlayers:4,
             settings:{ winMode:"high", endAt:null } }
 };
 const isTys = g => g.type === "tysiac";
 const activeOf = (g, r) => r.active || g.players.map((_,i)=>i);
 
-/* punkty przyznane w rundzie */
 function deltasFor(g, r){
   const d = new Array(g.players.length).fill(0);
   const act = activeOf(g, r);
@@ -209,12 +305,13 @@ const bombsLeft = (g, calc, i) =>
   (!isTys(g) || g.settings.bombLimit === null) ? null : Math.max(0, g.settings.bombLimit - calc.bombs[i]);
 
 /* ====== stan ====== */
-const S = { view:"home", games:[], gameId:null, draft:null, form:null, editIndex:null, saveError:false };
+const S = { view:"home", lang:"pl", games:[], gameId:null, draft:null, form:null, editIndex:null, saveError:false };
 const app = document.getElementById("app");
+const T = () => I18N[S.lang];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const cur = () => S.games.find(g => g.id === S.gameId) || null;
-const plural = n => n === 1 ? "runda" : (n % 10 >= 2 && n % 10 <= 4 && (n < 12 || n > 14)) ? "rundy" : "rund";
+const gameName = type => T().names[type];
 const bombIcon = (s=14) => `<svg class="bico" viewBox="0 0 16 16" width="${s}" height="${s}" aria-hidden="true" focusable="false">
   <circle cx="6.6" cy="10.3" r="4.7" fill="currentColor"/>
   <rect x="8.2" y="6.2" width="3.4" height="2.6" rx=".5" transform="rotate(-45 9.9 7.5)" fill="currentColor"/>
@@ -229,12 +326,17 @@ async function persist(){
 
 /* ====== widoki ====== */
 function shell(inner, o={}){
-  const back = o.back ? `<button class="back" data-act="${o.back}">← ${esc(o.backLabel||"Wstecz")}</button>` : "";
+  const t = T();
+  const back = o.back ? `<button class="back" data-act="${o.back}">← ${esc(o.backLabel||"")}</button>` : "";
+  const langs = ["pl","en"].map(l =>
+    `<button class="lang" data-act="lang" data-val="${l}" aria-pressed="${S.lang===l}">${l.toUpperCase()}</button>`).join("");
   return `<div class="top">${back || `<div class="brand">Card <span>Scoreboard</span></div>`}
-    <div class="sub">${esc(o.sub||"licznik punktów")}</div></div>${inner}`;
+    <div class="sub">${esc(o.sub||t.sub)}</div>
+    <div class="langs">${langs}</div></div>${inner}`;
 }
 
 function viewHome(){
+  const t = T();
   const live = S.games.filter(g=>!g.finished).sort((a,b)=>b.updatedAt-a.updatedAt);
   const done = S.games.filter(g=>g.finished).sort((a,b)=>b.updatedAt-a.updatedAt);
   const item = g => {
@@ -243,82 +345,84 @@ function viewHome(){
     const best = g.players.map((p,i)=>({p,v:c.totals[i]})).sort((a,b)=> low ? a.v-b.v : b.v-a.v)[0];
     return `<button class="gitem ${g.finished?"done":""}" data-act="open" data-id="${g.id}">
       <div>
-        <div class="t">${esc(GAMES[g.type].name)} · ${g.rounds.length} ${plural(g.rounds.length)}</div>
+        <div class="t">${esc(gameName(g.type))} · ${esc(t.rounds(g.rounds.length))}</div>
         <div class="n">${esc(g.players.map(p=>p.name).join(", "))}</div>
         <div class="m">${g.finished
-          ? "Zakończona · wygrał(a) " + esc(g.players[c.winner!=null?c.winner:0].name)
-          : (g.rounds.length ? "Prowadzi " + esc(best.p.name) + " · " + best.v : "Jeszcze bez rund")}</div>
+          ? esc(t.wonBy(g.players[c.winner!=null?c.winner:0].name))
+          : (g.rounds.length ? esc(t.leading(best.p.name, best.v)) : esc(t.noRounds))}</div>
       </div><div class="go">›</div></button>`;
   };
   return shell(`
     ${live.length ? `<div class="sheet tight"><div class="games">${live.map(item).join("")}</div></div>` : ""}
-    <button class="btn gold" data-act="new">Nowa gra</button>
-    ${done.length ? `<div class="sheet tight" style="margin-top:14px"><h2 style="padding:14px 14px 0">Zakończone</h2><div class="games">${done.map(item).join("")}</div></div>` : ""}
-    ${!live.length && !done.length ? `<div class="sheet"><div class="empty">Nic tu jeszcze nie ma.<br>Zacznij od nowej gry — wybierzesz grę, graczy i zasady.</div></div>` : ""}`);
+    <button class="btn gold" data-act="new">${esc(t.newGame)}</button>
+    ${done.length ? `<div class="sheet tight" style="margin-top:14px"><h2 style="padding:14px 14px 0">${esc(t.finishedSection)}</h2><div class="games">${done.map(item).join("")}</div></div>` : ""}
+    ${!live.length && !done.length ? `<div class="sheet"><div class="empty">${t.emptyHome}</div></div>` : ""}
+    <p class="credit">DKS</p>`);
 }
 
 function viewSetup(){
-  const d = S.draft, def = GAMES[d.type];
+  const t = T(), d = S.draft, def = GAMES[d.type];
   const canRemove = d.players.length > def.minPlayers, canAdd = d.players.length < def.maxPlayers;
   const rules = d.type === "tysiac" ? `
       <div class="row2">
         <div class="field">
-          <label class="lab" for="s-bomb">Bomby na gracza</label>
+          <label class="lab" for="s-bomb">${esc(t.bombLimit)}</label>
           <select id="s-bomb" data-set="bombLimit">
-            ${[0,1,2,3,4,5].map(v=>`<option value="${v}" ${d.settings.bombLimit===v?"selected":""}>${v===0?"bez bomb":v}</option>`).join("")}
-            <option value="null" ${d.settings.bombLimit===null?"selected":""}>bez limitu</option>
+            ${[0,1,2,3,4,5].map(v=>`<option value="${v}" ${d.settings.bombLimit===v?"selected":""}>${v===0?esc(t.noBombs):v}</option>`).join("")}
+            <option value="null" ${d.settings.bombLimit===null?"selected":""}>${esc(t.unlimited)}</option>
           </select>
         </div>
         <div class="field">
-          <label class="lab" for="s-bv">Bomba daje reszcie</label>
+          <label class="lab" for="s-bv">${esc(t.bombValue)}</label>
           <input id="s-bv" type="number" inputmode="numeric" step="10" value="${d.settings.bombValue}" data-set="bombValue">
         </div>
       </div>
       <div class="row2">
         <div class="field">
-          <label class="lab" for="s-target">Gra do</label>
+          <label class="lab" for="s-target">${esc(t.gameTo)}</label>
           <input id="s-target" type="number" inputmode="numeric" step="10" value="${d.settings.target}" data-set="target">
         </div>
         <div class="field">
-          <label class="lab" for="s-barrier">Próg „stoi”</label>
+          <label class="lab" for="s-barrier">${esc(t.barrier)}</label>
           <input id="s-barrier" type="number" inputmode="numeric" step="10" value="${d.settings.barrier}" data-set="barrier">
         </div>
       </div>
-      <p class="hint">Kto rzuci bombę, nie zapisuje nic, a pozostali dostają po tyle, ile ustawisz wyżej. Próg tylko podświetla gracza na tablicy — punktów nie zmienia. Wpisz 0, żeby go wyłączyć.</p>`
+      <p class="hint">${esc(t.tysHint)}</p>`
     : `
       <div class="field">
-        <label class="lab">Wygrywa</label>
+        <label class="lab">${esc(t.winnerLabel)}</label>
         <div class="seg">
-          <button data-set="winMode" data-val="low" aria-pressed="${d.settings.winMode==="low"}">najmniej punktów</button>
-          <button data-set="winMode" data-val="high" aria-pressed="${d.settings.winMode==="high"}">najwięcej punktów</button>
+          <button data-set="winMode" data-val="low" aria-pressed="${d.settings.winMode==="low"}">${esc(t.fewest)}</button>
+          <button data-set="winMode" data-val="high" aria-pressed="${d.settings.winMode==="high"}">${esc(t.most)}</button>
         </div>
       </div>
       <div class="field">
-        <label class="lab" for="s-end">Koniec gry przy (puste = bez limitu)</label>
+        <label class="lab" for="s-end">${esc(t.endAt)}</label>
         <input id="s-end" type="number" inputmode="numeric" value="${d.settings.endAt ?? ""}" data-set="endAt">
       </div>`;
   return shell(`
     <div class="sheet">
-      <h2>Gra</h2>
-      <div class="chips">${Object.keys(GAMES).map(k=>`<button class="chip" data-act="type" data-val="${k}" aria-pressed="${d.type===k}">${esc(GAMES[k].name)}</button>`).join("")}</div>
+      <h2>${esc(t.hGame)}</h2>
+      <div class="chips">${Object.keys(GAMES).map(k=>`<button class="chip" data-act="type" data-val="${k}" aria-pressed="${d.type===k}">${esc(gameName(k))}</button>`).join("")}</div>
     </div>
     <div class="sheet">
-      <h2>Gracze</h2>
+      <h2>${esc(t.hPlayers)}</h2>
       <div class="plist">${d.players.map((p,i)=>`
         <div class="prow">
-          <input class="name" type="text" value="${esc(p)}" placeholder="Gracz ${i+1}" data-pl="${i}" autocomplete="off">
-          ${canRemove?`<button class="rm" data-act="rmpl" data-i="${i}" aria-label="Usuń gracza">×</button>`:""}
+          <input class="name" type="text" value="${esc(p)}" placeholder="${esc(t.playerN(i+1))}" data-pl="${i}" autocomplete="off">
+          ${canRemove?`<button class="rm" data-act="rmpl" data-i="${i}" aria-label="${esc(t.removePlayer)}">×</button>`:""}
         </div>`).join("")}</div>
-      ${canAdd?`<button class="btn ghost sm" style="margin-top:10px" data-act="addpl">+ Dodaj gracza</button>`:""}
-      ${d.type==="tysiac" && d.players.length===4?`<p class="hint" style="margin-top:10px">Przy czterech graczach w każdym rozdaniu jedna osoba pauzuje — aplikacja podpowie kto, po kolei.</p>`:""}
+      ${canAdd?`<button class="btn ghost sm" style="margin-top:10px" data-act="addpl">${esc(t.addPlayer)}</button>`:""}
+      ${d.type==="tysiac" && d.players.length===4?`<p class="hint" style="margin-top:10px">${esc(t.fourHint)}</p>`:""}
     </div>
-    <div class="sheet"><h2>Zasady</h2>${rules}</div>
-    <button class="btn gold" data-act="start">Zaczynamy</button>`,
-    {back:"home", backLabel:"Gry", sub:"nowa gra"});
+    <div class="sheet"><h2>${esc(t.hRules)}</h2>${rules}</div>
+    <button class="btn gold" data-act="start">${esc(t.start)}</button>`,
+    {back:"home", backLabel:t.backGames, sub:t.setupSub});
 }
 
 function viewGame(){
-  const g = cur(); if (!g) return viewHome();
+  const t = T(), g = cur();
+  if (!g) return viewHome();
   const c = computeGame(g);
   const low = !isTys(g) && g.settings.winMode === "low";
   const best = Math.max(...c.totals.map(v => low ? -v : v));
@@ -330,7 +434,7 @@ function viewGame(){
     return `<div class="col ${lead?"lead":""} ${stoi?"stoi":""}">
       <div class="who">${esc(p.name)}</div>
       <div class="pts">${c.totals[i]}</div>
-      ${stoi?`<div class="flag">stoi</div>`:""}
+      ${stoi?`<div class="flag">${esc(t.standing)}</div>`:""}
       ${bl ? `<div class="bombs">${Array.from({length:bl},(_,k)=>`<i class="${k < c.bombs[i] ? "used":""}">${bombIcon(13)}</i>`).join("")}</div>` : ""}
     </div>`;
   }).join("");
@@ -350,17 +454,17 @@ function viewGame(){
   if (c.winner != null && !g.finished){ g.finished = true; persist(); }
 
   return shell(`
-    ${g.finished && c.winner!=null ? `<div class="win"><div class="t">Koniec gry</div><div class="n">${esc(g.players[c.winner].name)}</div><div class="t" style="margin-top:6px">${c.totals[c.winner]} punktów</div></div>` : ""}
+    ${g.finished && c.winner!=null ? `<div class="win"><div class="t">${esc(t.gameOver)}</div><div class="n">${esc(g.players[c.winner].name)}</div><div class="t" style="margin-top:6px">${c.totals[c.winner]} ${esc(t.pointsWord)}</div></div>` : ""}
     <div class="sheet"><div class="board">${board}</div></div>
     <div class="sheet tight">${c.rows.length
-      ? `<div class="rwrap"><table class="rounds"><thead><tr><th>Runda</th>${g.players.map(p=>`<th>${esc(p.name.slice(0,7))}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`
-      : `<div class="empty">Pusta karta.<br>Dodaj pierwszą rundę.</div>`}</div>
+      ? `<div class="rwrap"><table class="rounds"><thead><tr><th>${esc(t.roundCol)}</th>${g.players.map(p=>`<th>${esc(p.name.slice(0,7))}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`
+      : `<div class="empty">${t.emptySheet}</div>`}</div>
     ${g.finished
-      ? `<div class="row2"><button class="btn ghost" data-act="reopen">Graj dalej</button><button class="btn" data-act="home">Gotowe</button></div>`
-      : `<button class="btn gold" data-act="round">+ Dodaj rundę</button>`}
-    ${c.rows.length?`<p class="hint" style="color:rgba(234,240,234,.5);text-align:center;margin-top:12px">Stuknij rundę, żeby ją poprawić lub usunąć.</p>`:""}
-    ${S.saveError?`<p class="hint" style="color:#F0C9A0;text-align:center;margin-top:10px">Nie udało się zapisać gry w tej przeglądarce — wynik zniknie po zamknięciu karty.</p>`:""}`,
-    {back:"home", backLabel:"Gry", sub:GAMES[g.type].name + " · " + g.players.length + " graczy"});
+      ? `<div class="row2"><button class="btn ghost" data-act="reopen">${esc(t.keepPlaying)}</button><button class="btn" data-act="home">${esc(t.done)}</button></div>`
+      : `<button class="btn gold" data-act="round">${esc(t.addRound)}</button>`}
+    ${c.rows.length?`<p class="hint" style="color:rgba(234,240,234,.5);text-align:center;margin-top:12px">${esc(t.tapHint)}</p>`:""}
+    ${S.saveError?`<p class="hint" style="color:#F0C9A0;text-align:center;margin-top:10px">${esc(t.saveError)}</p>`:""}`,
+    {back:"home", backLabel:t.backGames, sub:gameName(g.type) + " · " + t.playersCount(g.players.length)});
 }
 
 /* ====== runda ====== */
@@ -369,9 +473,8 @@ function newForm(g){
   const sitOut = (isTys(g) && n === 4) ? g.rounds.length % 4 : null;
   return { sitOut, bomber:null, points:new Array(n).fill("") };
 }
-function activeIdx(g, f){
-  return g.players.map((_,i)=>i).filter(i => i !== f.sitOut);
-}
+const activeIdx = (g, f) => g.players.map((_,i)=>i).filter(i => i !== f.sitOut);
+
 function formToRound(g, f){
   const r = { points: f.points.map(v => Number(v) || 0) };
   if (isTys(g)){ r.active = activeIdx(g, f); r.bomber = f.bomber; }
@@ -379,69 +482,67 @@ function formToRound(g, f){
 }
 
 function viewRound(){
-  const g = cur();
+  const t = T(), g = cur();
   return shell(`<div id="formwrap">${roundFormInner(g, S.form)}</div>`,
-    { back:"game", backLabel:"Wynik",
-      sub: S.editIndex != null ? "edycja rundy " + (S.editIndex+1) : "runda " + (g.rounds.length+1) });
+    { back:"game", backLabel:t.backScore,
+      sub: S.editIndex != null ? t.editRound(S.editIndex+1) : t.roundNo(g.rounds.length+1) });
 }
 
 function roundFormInner(g, f){
+  const t = T();
   const act = activeIdx(g, f);
   const calc = computeGame(g);
   const bombed = f.bomber != null;
 
   const sitOutField = (isTys(g) && g.players.length === 4) ? `
     <div class="sheet">
-      <h2>Pauzuje</h2>
+      <h2>${esc(t.sittingOut)}</h2>
       <div class="chips">${g.players.map((p,i)=>`<button class="chip" data-act="sitout" data-i="${i}" aria-pressed="${f.sitOut===i}">${esc(p.name)}</button>`).join("")}</div>
     </div>` : "";
 
   const bombField = (isTys(g) && g.settings.bombLimit !== 0) ? `
     <div class="sheet">
-      <h2>Bomba</h2>
+      <h2>${esc(t.bomb)}</h2>
       <div class="chips">${act.map(i=>{
         const left = bombsLeft(g, calc, i);
         const out = left === 0 && f.bomber !== i;
         return `<button class="chip bomb" data-act="bomber" data-i="${i}" aria-pressed="${f.bomber===i}" ${out?"disabled style=opacity:.35":""}>${bombIcon(14)}${esc(g.players[i].name)}${left!==null?`<span class="val">${left}</span>`:""}</button>`;
       }).join("")}</div>
-      <p class="hint" style="margin-top:9px">${bombed
-        ? `Rozdanie skasowane. ${esc(g.players[f.bomber].name)} zapisuje 0, reszta po ${g.settings.bombValue}. Stuknij ponownie, żeby cofnąć.`
-        : `Stuknij gracza, który rzucił bombę. Liczba obok to bomby, które mu zostały.`}</p>
+      <p class="hint" style="margin-top:9px">${esc(bombed ? t.bombOn(g.players[f.bomber].name, g.settings.bombValue) : t.bombOff)}</p>
     </div>` : "";
 
   const pointsField = `
     <div class="sheet">
-      <h2>Punkty w rundzie</h2>
+      <h2>${esc(t.roundPoints)}</h2>
       <div class="plist">${act.map(i=>`
         <div class="prow">
           <div class="name">${esc(g.players[i].name)}</div>
           <input class="num" type="number" inputmode="numeric" value="${esc(f.points[i])}" placeholder="0" data-pt="${i}" ${bombed?"disabled":""}>
         </div>`).join("")}</div>
-      <p class="hint" style="margin-top:10px">${isTys(g)
-        ? "Wpisz sumę na gracza — lewy razem z meldunkami. Nieugrany kontrakt zapisz na minusie, np. −120."
-        : "Możesz wpisywać wartości ujemne."}</p>
+      <p class="hint" style="margin-top:10px">${esc(isTys(g) ? t.tysPointsHint : t.otherPointsHint)}</p>
     </div>`;
 
   return `
     ${sitOutField}
     ${pointsField}
     ${bombField}
-    <div class="sheet"><h2>Zapis</h2><div class="preview" id="preview">${previewInner(g,f)}</div></div>
-    <button class="btn gold" data-act="saveround">Zapisz rundę</button>
-    ${S.editIndex!=null?`<button class="btn danger sm" style="margin-top:10px" data-act="delround">Usuń tę rundę</button>`:""}`;
+    <div class="sheet"><h2>${esc(t.entry)}</h2><div class="preview" id="preview">${previewInner(g,f)}</div></div>
+    <button class="btn gold" data-act="saveround">${esc(t.saveRound)}</button>
+    ${S.editIndex!=null?`<button class="btn danger sm" style="margin-top:10px" data-act="delround">${esc(t.deleteRound)}</button>`:""}`;
 }
 
 function previewInner(g, f){
-  const r = formToRound(g, f);
-  const d = deltasFor(g, r);
+  const t = T();
+  const d = deltasFor(g, formToRound(g, f));
   return activeIdx(g, f).map(i=>{
-    const note = (f.bomber === i) ? "rzucił bombę" : "";
-    return `<div class="p"><span>${esc(g.players[i].name)} <em>${note}</em></span><b class="${d[i]<0?"neg":""}">${d[i]>0?"+"+d[i]:d[i]}</b></div>`;
+    const note = (f.bomber === i) ? t.threwBomb : "";
+    return `<div class="p"><span>${esc(g.players[i].name)} <em>${esc(note)}</em></span><b class="${d[i]<0?"neg":""}">${d[i]>0?"+"+d[i]:d[i]}</b></div>`;
   }).join("");
 }
 
 /* ====== render + zdarzenia ====== */
 function render(){
+  document.documentElement.lang = S.lang;
   app.innerHTML = ({ home:viewHome, setup:viewSetup, game:viewGame, round:viewRound }[S.view] || viewHome)();
   window.scrollTo(0,0);
 }
@@ -459,6 +560,12 @@ document.addEventListener("click", async (e)=>{
   if (!b || b.disabled) return;
   const act = b.dataset.act, g = cur(), f = S.form;
 
+  if (act === "lang"){
+    if (S.lang === b.dataset.val) return;
+    S.lang = b.dataset.val;
+    await store.saveLang(S.lang);
+    return render();
+  }
   if (act === "home"){ S.view="home"; S.gameId=null; return render(); }
   if (act === "game"){ S.view="game"; S.form=null; S.editIndex=null; return render(); }
   if (act === "new"){
@@ -466,10 +573,10 @@ document.addEventListener("click", async (e)=>{
     S.view="setup"; return render();
   }
   if (act === "type"){
-    const t = b.dataset.val, def = GAMES[t];
+    const ty = b.dataset.val, def = GAMES[ty];
     const p = S.draft.players.slice(0, def.maxPlayers);
     while (p.length < def.defaultPlayers) p.push("");
-    S.draft = { type:t, players:p, settings:{...def.settings} };
+    S.draft = { type:ty, players:p, settings:{...def.settings} };
     return render();
   }
   if (act === "addpl"){ S.draft.players.push(""); return render(); }
@@ -477,7 +584,7 @@ document.addEventListener("click", async (e)=>{
   if (act === "start"){
     const d = S.draft;
     const game = { id:uid(), type:d.type, settings:{...d.settings}, rounds:[],
-      players:d.players.map((nm,i)=>({ name:(nm||"").trim() || "Gracz "+(i+1) })),
+      players:d.players.map((nm,i)=>({ name:(nm||"").trim() || T().playerN(i+1) })),
       createdAt:Date.now(), updatedAt:Date.now(), finished:false };
     S.games.push(game); S.gameId = game.id; S.view = "game";
     await persist(); return render();
@@ -504,7 +611,7 @@ document.addEventListener("click", async (e)=>{
     await persist(); return render();
   }
   if (act === "delround"){
-    if (!confirm("Usunąć tę rundę? Sumy przeliczą się od nowa.")) return;
+    if (!confirm(T().confirmDelete)) return;
     g.rounds.splice(S.editIndex, 1);
     S.form = null; S.editIndex = null; S.view = "game";
     await persist(); return render();
@@ -544,7 +651,12 @@ document.addEventListener("click", (e)=>{
   render();
 });
 
-(async function init(){ S.games = await store.load(); render(); })();
+(async function init(){
+  const saved = await store.loadLang();
+  if (saved === "pl" || saved === "en") S.lang = saved;
+  S.games = await store.load();
+  render();
+})();
 </script>
 </body>
 </html>
