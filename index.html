@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#123B2C">
+<title>Card Scoreboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --felt:#123B2C; --felt-deep:#0B241B; --paper:#F4F5F1; --paper-2:#E9EBE4;
+  --ink:#101A16; --ink-soft:#5C6D63; --red:#BE2233; --gold:#D9A62E;
+  --line:rgba(16,26,22,.13);
+  --shadow:0 1px 0 rgba(0,0,0,.22), 0 12px 28px -14px rgba(0,0,0,.55);
+  --display:"Oswald","Arial Narrow",system-ui,sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--body); color:var(--ink); background:var(--felt);
+  background-image:radial-gradient(120% 80% at 50% -10%, #1A5340 0%, var(--felt) 45%, var(--felt-deep) 100%);
+  background-attachment:fixed; min-height:100dvh; -webkit-text-size-adjust:100%;
+}
+#app{max-width:760px;margin:0 auto;padding:14px 14px calc(28px + env(safe-area-inset-bottom))}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px}
+
+.top{display:flex;align-items:center;gap:10px;padding:10px 2px 16px}
+.brand{font-family:var(--display);font-weight:600;letter-spacing:.15em;text-transform:uppercase;font-size:14px;color:#EAF0EA;white-space:nowrap}
+.brand span{color:var(--gold)}
+.top .sub{font-size:12px;color:rgba(234,240,234,.55);margin-left:auto;text-align:right;line-height:1.3}
+.back{font-family:var(--display);letter-spacing:.12em;text-transform:uppercase;font-size:13px;color:rgba(234,240,234,.75);padding:6px 0}
+
+.sheet{background:var(--paper);border-radius:14px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+.sheet.tight{padding:0;overflow:hidden}
+h2{font-family:var(--display);font-weight:500;letter-spacing:.16em;text-transform:uppercase;font-size:12px;color:var(--ink-soft);margin:0 0 12px}
+.hint{font-size:12.5px;color:var(--ink-soft);line-height:1.45}
+
+.board{display:flex;gap:8px}
+.col{flex:1 1 0;min-width:0;text-align:center;padding:10px 4px 8px;border-radius:10px;position:relative}
+.col .who{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-soft)}
+.col .pts{font-family:var(--display);font-weight:500;font-size:40px;line-height:1.05;letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin-top:2px}
+.col.lead::after{content:"";position:absolute;left:16%;right:16%;bottom:2px;height:3px;background:var(--gold);border-radius:2px}
+.col.stoi{background:linear-gradient(to bottom, rgba(217,166,46,.16), rgba(217,166,46,0))}
+.col .flag{font-family:var(--display);letter-spacing:.16em;font-size:10px;text-transform:uppercase;color:#8A6A11;margin-top:2px}
+.col .bombs{margin-top:6px;display:flex;justify-content:center;gap:4px;line-height:0}
+.col .bombs i{font-style:normal;opacity:.22;color:var(--ink)}
+.col .bombs i.used{opacity:1;color:var(--red)}
+
+.rwrap{padding:8px 14px}
+.rounds{width:100%;border-collapse:collapse;font-size:14px}
+.rounds th{font-family:var(--display);font-weight:400;letter-spacing:.1em;text-transform:uppercase;font-size:10.5px;color:var(--ink-soft);padding:8px 6px;border-bottom:1px solid var(--line);text-align:right}
+.rounds th:first-child{text-align:left;padding-left:0;width:1%;white-space:nowrap}
+.rounds th:last-child,.rounds td:last-child{padding-right:0}
+.rounds td{padding:11px 6px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+.rounds td:first-child{text-align:left;padding-left:0;color:var(--ink-soft);font-size:12px;white-space:nowrap}
+.rounds tr:last-child td{border-bottom:none}
+.rounds tr[data-round]{cursor:pointer}
+.rounds tr[data-round]:hover{background:var(--paper-2)}
+.rounds td.d{font-weight:600}
+.rounds td.neg{color:var(--red)}
+.rounds td.zero{color:rgba(92,109,99,.45)}
+.rounds .no{font-family:var(--display);color:var(--ink-soft);font-size:12px}
+.rounds .bmark{color:var(--red);display:inline-block;line-height:0;vertical-align:-2px}
+.empty{padding:26px 16px;text-align:center;color:var(--ink-soft);font-size:13.5px;line-height:1.5}
+
+.btn{display:block;width:100%;text-align:center;background:var(--ink);color:var(--paper);border-radius:11px;padding:15px;font-family:var(--display);font-weight:500;letter-spacing:.14em;text-transform:uppercase;font-size:14px}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.35;cursor:not-allowed}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--line)}
+.btn.gold{background:var(--gold);color:#241A00}
+.btn.danger{background:none;color:var(--red);border:1px solid rgba(190,34,51,.3)}
+.btn.sm{padding:11px;font-size:12px}
+.row2{display:flex;gap:10px}
+.row2>*{flex:1}
+
+.field{margin-bottom:16px}
+.field:last-child{margin-bottom:0}
+label.lab{display:block;font-family:var(--display);letter-spacing:.14em;text-transform:uppercase;font-size:11px;color:var(--ink-soft);margin-bottom:7px}
+input[type=text],input[type=number],select{width:100%;background:#fff;border:1px solid var(--line);border-radius:9px;padding:12px 13px;font-size:16px}
+input[type=number]{font-variant-numeric:tabular-nums}
+input[disabled]{background:var(--paper-2);color:var(--ink-soft)}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 14px;font-size:14px;line-height:1}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip.bomb{display:inline-flex;align-items:center;gap:7px}
+.chip.bomb .bico{color:var(--red)}
+.chip.bomb[aria-pressed=true]{background:var(--red);color:#fff;border-color:var(--red)}
+.chip.bomb[aria-pressed=true] .bico{color:#fff}
+.chip .val{font-variant-numeric:tabular-nums;opacity:.55;font-size:12px;margin-left:6px}
+.chip[aria-pressed=true] .val{opacity:.8}
+.seg{display:flex;background:var(--paper-2);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;padding:10px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--ink-soft)}
+.seg button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.plist{display:flex;flex-direction:column;gap:8px}
+.prow{display:flex;align-items:center;gap:9px}
+.prow .name{flex:1;min-width:0;font-size:15px}
+.prow .num{width:104px;flex:none;text-align:right}
+.prow .rm{width:42px;flex:none;color:var(--ink-soft);font-size:20px;line-height:1}
+.preview{background:var(--paper-2);border-radius:10px;padding:12px 13px;font-size:13.5px;line-height:1.6}
+.preview .p{display:flex;justify-content:space-between;gap:10px}
+.preview .p em{font-style:normal;color:var(--ink-soft);font-size:12px}
+.preview .p b{font-variant-numeric:tabular-nums}
+.preview .p b.neg{color:var(--red)}
+
+.games{display:flex;flex-direction:column}
+.gitem{display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--line);text-align:left;width:100%}
+.gitem:last-child{border-bottom:none}
+.gitem .t{font-family:var(--display);letter-spacing:.1em;text-transform:uppercase;font-size:12px;color:var(--ink-soft)}
+.gitem .n{font-size:15px;margin-top:2px}
+.gitem .m{font-size:12px;color:var(--ink-soft);margin-top:3px}
+.gitem .go{margin-left:auto;font-family:var(--display);font-size:20px;color:var(--ink-soft)}
+.gitem.done .n{color:var(--ink-soft)}
+.win{background:var(--gold);color:#241A00;border-radius:14px;padding:18px;text-align:center;margin-bottom:14px;box-shadow:var(--shadow)}
+.win .t{font-family:var(--display);letter-spacing:.2em;text-transform:uppercase;font-size:11px;opacity:.7}
+.win .n{font-family:var(--display);font-size:30px;line-height:1.1;margin-top:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+"use strict";
+
+/* ====== zapis: artefakt Claude albo zwykła przeglądarka ====== */
+const KEY = "cardscoreboard:games:v2";
+const OLD_KEYS = ["kreska:games:v2"];
+const store = {
+  async load(){
+    for (const k of [KEY, ...OLD_KEYS]){
+      try{
+        if (window.storage && window.storage.get){
+          const r = await window.storage.get(k, false);
+          if (r && r.value) return JSON.parse(r.value);
+        }
+      }catch(e){}
+      try{
+        const v = window.localStorage ? localStorage.getItem(k) : null;
+        if (v) return JSON.parse(v);
+      }catch(e){}
+    }
+    return [];
+  },
+  async save(games){
+    const json = JSON.stringify(games);
+    try{ if (window.storage && window.storage.set){ await window.storage.set(KEY, json, false); return true; } }catch(e){}
+    try{ localStorage.setItem(KEY, json); return true; }catch(e){ return false; }
+  }
+};
+
+/* ====== gry ====== */
+const GAMES = {
+  tysiac: { name:"Tysiąc", minPlayers:2, maxPlayers:4, defaultPlayers:3, hasBombs:true,
+            settings:{ target:1000, barrier:880, bombLimit:2, bombValue:60, winMode:"high" } },
+  remik:  { name:"Remik", minPlayers:2, maxPlayers:8, defaultPlayers:4, hasBombs:false,
+            settings:{ winMode:"low", endAt:500 } },
+  wlasna: { name:"Inna gra", minPlayers:2, maxPlayers:8, defaultPlayers:4, hasBombs:false,
+            settings:{ winMode:"high", endAt:null } }
+};
+const isTys = g => g.type === "tysiac";
+const activeOf = (g, r) => r.active || g.players.map((_,i)=>i);
+
+/* punkty przyznane w rundzie */
+function deltasFor(g, r){
+  const d = new Array(g.players.length).fill(0);
+  const act = activeOf(g, r);
+  if (isTys(g) && r.bomber != null && r.bomber >= 0){
+    for (const i of act) d[i] = (i === r.bomber) ? 0 : (Number(g.settings.bombValue) || 0);
+    return d;
+  }
+  for (const i of act) d[i] = Number(r.points[i]) || 0;
+  return d;
+}
+
+function computeGame(g){
+  const n = g.players.length;
+  const totals = new Array(n).fill(0);
+  const bombs = new Array(n).fill(0);
+  const rows = [];
+  for (const r of g.rounds){
+    const d = deltasFor(g, r);
+    if (isTys(g) && r.bomber != null && r.bomber >= 0) bombs[r.bomber]++;
+    for (let i=0;i<n;i++) totals[i] += d[i];
+    rows.push({ r, d, after: totals.slice() });
+  }
+  return { totals, bombs, rows, winner: findWinner(g, totals) };
+}
+
+function findWinner(g, totals){
+  if (isTys(g)){
+    const t = g.settings.target;
+    let best = -1;
+    totals.forEach((v,i)=>{ if (v >= t && (best < 0 || v > totals[best])) best = i; });
+    return best < 0 ? null : best;
+  }
+  const end = g.settings.endAt;
+  if (!end || !totals.some(v => v >= end)) return null;
+  let best = 0;
+  totals.forEach((v,i)=>{ if (g.settings.winMode === "low" ? v < totals[best] : v > totals[best]) best = i; });
+  return best;
+}
+
+const bombsLeft = (g, calc, i) =>
+  (!isTys(g) || g.settings.bombLimit === null) ? null : Math.max(0, g.settings.bombLimit - calc.bombs[i]);
+
+/* ====== stan ====== */
+const S = { view:"home", games:[], gameId:null, draft:null, form:null, editIndex:null, saveError:false };
+const app = document.getElementById("app");
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const cur = () => S.games.find(g => g.id === S.gameId) || null;
+const plural = n => n === 1 ? "runda" : (n % 10 >= 2 && n % 10 <= 4 && (n < 12 || n > 14)) ? "rundy" : "rund";
+const bombIcon = (s=14) => `<svg class="bico" viewBox="0 0 16 16" width="${s}" height="${s}" aria-hidden="true" focusable="false">
+  <circle cx="6.6" cy="10.3" r="4.7" fill="currentColor"/>
+  <rect x="8.2" y="6.2" width="3.4" height="2.6" rx=".5" transform="rotate(-45 9.9 7.5)" fill="currentColor"/>
+  <path d="M11.6 5.7c1.2-1.4 2.4-1 2.7.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+  <circle cx="14.5" cy="5.4" r="1.2" fill="var(--gold)"/>
+</svg>`;
+
+async function persist(){
+  const g = cur(); if (g) g.updatedAt = Date.now();
+  S.saveError = !(await store.save(S.games));
+}
+
+/* ====== widoki ====== */
+function shell(inner, o={}){
+  const back = o.back ? `<button class="back" data-act="${o.back}">← ${esc(o.backLabel||"Wstecz")}</button>` : "";
+  return `<div class="top">${back || `<div class="brand">Card <span>Scoreboard</span></div>`}
+    <div class="sub">${esc(o.sub||"licznik punktów")}</div></div>${inner}`;
+}
+
+function viewHome(){
+  const live = S.games.filter(g=>!g.finished).sort((a,b)=>b.updatedAt-a.updatedAt);
+  const done = S.games.filter(g=>g.finished).sort((a,b)=>b.updatedAt-a.updatedAt);
+  const item = g => {
+    const c = computeGame(g);
+    const low = !isTys(g) && g.settings.winMode === "low";
+    const best = g.players.map((p,i)=>({p,v:c.totals[i]})).sort((a,b)=> low ? a.v-b.v : b.v-a.v)[0];
+    return `<button class="gitem ${g.finished?"done":""}" data-act="open" data-id="${g.id}">
+      <div>
+        <div class="t">${esc(GAMES[g.type].name)} · ${g.rounds.length} ${plural(g.rounds.length)}</div>
+        <div class="n">${esc(g.players.map(p=>p.name).join(", "))}</div>
+        <div class="m">${g.finished
+          ? "Zakończona · wygrał(a) " + esc(g.players[c.winner!=null?c.winner:0].name)
+          : (g.rounds.length ? "Prowadzi " + esc(best.p.name) + " · " + best.v : "Jeszcze bez rund")}</div>
+      </div><div class="go">›</div></button>`;
+  };
+  return shell(`
+    ${live.length ? `<div class="sheet tight"><div class="games">${live.map(item).join("")}</div></div>` : ""}
+    <button class="btn gold" data-act="new">Nowa gra</button>
+    ${done.length ? `<div class="sheet tight" style="margin-top:14px"><h2 style="padding:14px 14px 0">Zakończone</h2><div class="games">${done.map(item).join("")}</div></div>` : ""}
+    ${!live.length && !done.length ? `<div class="sheet"><div class="empty">Nic tu jeszcze nie ma.<br>Zacznij od nowej gry — wybierzesz grę, graczy i zasady.</div></div>` : ""}`);
+}
+
+function viewSetup(){
+  const d = S.draft, def = GAMES[d.type];
+  const canRemove = d.players.length > def.minPlayers, canAdd = d.players.length < def.maxPlayers;
+  const rules = d.type === "tysiac" ? `
+      <div class="row2">
+        <div class="field">
+          <label class="lab" for="s-bomb">Bomby na gracza</label>
+          <select id="s-bomb" data-set="bombLimit">
+            ${[0,1,2,3,4,5].map(v=>`<option value="${v}" ${d.settings.bombLimit===v?"selected":""}>${v===0?"bez bomb":v}</option>`).join("")}
+            <option value="null" ${d.settings.bombLimit===null?"selected":""}>bez limitu</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="lab" for="s-bv">Bomba daje reszcie</label>
+          <input id="s-bv" type="number" inputmode="numeric" step="10" value="${d.settings.bombValue}" data-set="bombValue">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label class="lab" for="s-target">Gra do</label>
+          <input id="s-target" type="number" inputmode="numeric" step="10" value="${d.settings.target}" data-set="target">
+        </div>
+        <div class="field">
+          <label class="lab" for="s-barrier">Próg „stoi”</label>
+          <input id="s-barrier" type="number" inputmode="numeric" step="10" value="${d.settings.barrier}" data-set="barrier">
+        </div>
+      </div>
+      <p class="hint">Kto rzuci bombę, nie zapisuje nic, a pozostali dostają po tyle, ile ustawisz wyżej. Próg tylko podświetla gracza na tablicy — punktów nie zmienia. Wpisz 0, żeby go wyłączyć.</p>`
+    : `
+      <div class="field">
+        <label class="lab">Wygrywa</label>
+        <div class="seg">
+          <button data-set="winMode" data-val="low" aria-pressed="${d.settings.winMode==="low"}">najmniej punktów</button>
+          <button data-set="winMode" data-val="high" aria-pressed="${d.settings.winMode==="high"}">najwięcej punktów</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="lab" for="s-end">Koniec gry przy (puste = bez limitu)</label>
+        <input id="s-end" type="number" inputmode="numeric" value="${d.settings.endAt ?? ""}" data-set="endAt">
+      </div>`;
+  return shell(`
+    <div class="sheet">
+      <h2>Gra</h2>
+      <div class="chips">${Object.keys(GAMES).map(k=>`<button class="chip" data-act="type" data-val="${k}" aria-pressed="${d.type===k}">${esc(GAMES[k].name)}</button>`).join("")}</div>
+    </div>
+    <div class="sheet">
+      <h2>Gracze</h2>
+      <div class="plist">${d.players.map((p,i)=>`
+        <div class="prow">
+          <input class="name" type="text" value="${esc(p)}" placeholder="Gracz ${i+1}" data-pl="${i}" autocomplete="off">
+          ${canRemove?`<button class="rm" data-act="rmpl" data-i="${i}" aria-label="Usuń gracza">×</button>`:""}
+        </div>`).join("")}</div>
+      ${canAdd?`<button class="btn ghost sm" style="margin-top:10px" data-act="addpl">+ Dodaj gracza</button>`:""}
+      ${d.type==="tysiac" && d.players.length===4?`<p class="hint" style="margin-top:10px">Przy czterech graczach w każdym rozdaniu jedna osoba pauzuje — aplikacja podpowie kto, po kolei.</p>`:""}
+    </div>
+    <div class="sheet"><h2>Zasady</h2>${rules}</div>
+    <button class="btn gold" data-act="start">Zaczynamy</button>`,
+    {back:"home", backLabel:"Gry", sub:"nowa gra"});
+}
+
+function viewGame(){
+  const g = cur(); if (!g) return viewHome();
+  const c = computeGame(g);
+  const low = !isTys(g) && g.settings.winMode === "low";
+  const best = Math.max(...c.totals.map(v => low ? -v : v));
+  const bl = isTys(g) ? g.settings.bombLimit : 0;
+
+  const board = g.players.map((p,i)=>{
+    const stoi = isTys(g) && g.settings.barrier > 0 && c.totals[i] >= g.settings.barrier && c.totals[i] < g.settings.target;
+    const lead = g.rounds.length > 0 && (low ? -c.totals[i] : c.totals[i]) === best;
+    return `<div class="col ${lead?"lead":""} ${stoi?"stoi":""}">
+      <div class="who">${esc(p.name)}</div>
+      <div class="pts">${c.totals[i]}</div>
+      ${stoi?`<div class="flag">stoi</div>`:""}
+      ${bl ? `<div class="bombs">${Array.from({length:bl},(_,k)=>`<i class="${k < c.bombs[i] ? "used":""}">${bombIcon(13)}</i>`).join("")}</div>` : ""}
+    </div>`;
+  }).join("");
+
+  const body = c.rows.map((row, idx)=>{
+    const r = row.r;
+    return `<tr data-round="${idx}">
+      <td><span class="no">${idx+1}.</span></td>
+      ${row.d.map((v,i)=>{
+        const off = !activeOf(g, r).includes(i);
+        if (off) return `<td class="d zero">–</td>`;
+        if (isTys(g) && r.bomber === i) return `<td class="d"><span class="bmark">${bombIcon(15)}</span></td>`;
+        return `<td class="d ${v<0?"neg":""} ${v===0?"zero":""}">${v>0?"+"+v:v}</td>`;
+      }).join("")}</tr>`;
+  }).join("");
+
+  if (c.winner != null && !g.finished){ g.finished = true; persist(); }
+
+  return shell(`
+    ${g.finished && c.winner!=null ? `<div class="win"><div class="t">Koniec gry</div><div class="n">${esc(g.players[c.winner].name)}</div><div class="t" style="margin-top:6px">${c.totals[c.winner]} punktów</div></div>` : ""}
+    <div class="sheet"><div class="board">${board}</div></div>
+    <div class="sheet tight">${c.rows.length
+      ? `<div class="rwrap"><table class="rounds"><thead><tr><th>Runda</th>${g.players.map(p=>`<th>${esc(p.name.slice(0,7))}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`
+      : `<div class="empty">Pusta karta.<br>Dodaj pierwszą rundę.</div>`}</div>
+    ${g.finished
+      ? `<div class="row2"><button class="btn ghost" data-act="reopen">Graj dalej</button><button class="btn" data-act="home">Gotowe</button></div>`
+      : `<button class="btn gold" data-act="round">+ Dodaj rundę</button>`}
+    ${c.rows.length?`<p class="hint" style="color:rgba(234,240,234,.5);text-align:center;margin-top:12px">Stuknij rundę, żeby ją poprawić lub usunąć.</p>`:""}
+    ${S.saveError?`<p class="hint" style="color:#F0C9A0;text-align:center;margin-top:10px">Nie udało się zapisać gry w tej przeglądarce — wynik zniknie po zamknięciu karty.</p>`:""}`,
+    {back:"home", backLabel:"Gry", sub:GAMES[g.type].name + " · " + g.players.length + " graczy"});
+}
+
+/* ====== runda ====== */
+function newForm(g){
+  const n = g.players.length;
+  const sitOut = (isTys(g) && n === 4) ? g.rounds.length % 4 : null;
+  return { sitOut, bomber:null, points:new Array(n).fill("") };
+}
+function activeIdx(g, f){
+  return g.players.map((_,i)=>i).filter(i => i !== f.sitOut);
+}
+function formToRound(g, f){
+  const r = { points: f.points.map(v => Number(v) || 0) };
+  if (isTys(g)){ r.active = activeIdx(g, f); r.bomber = f.bomber; }
+  return r;
+}
+
+function viewRound(){
+  const g = cur();
+  return shell(`<div id="formwrap">${roundFormInner(g, S.form)}</div>`,
+    { back:"game", backLabel:"Wynik",
+      sub: S.editIndex != null ? "edycja rundy " + (S.editIndex+1) : "runda " + (g.rounds.length+1) });
+}
+
+function roundFormInner(g, f){
+  const act = activeIdx(g, f);
+  const calc = computeGame(g);
+  const bombed = f.bomber != null;
+
+  const sitOutField = (isTys(g) && g.players.length === 4) ? `
+    <div class="sheet">
+      <h2>Pauzuje</h2>
+      <div class="chips">${g.players.map((p,i)=>`<button class="chip" data-act="sitout" data-i="${i}" aria-pressed="${f.sitOut===i}">${esc(p.name)}</button>`).join("")}</div>
+    </div>` : "";
+
+  const bombField = (isTys(g) && g.settings.bombLimit !== 0) ? `
+    <div class="sheet">
+      <h2>Bomba</h2>
+      <div class="chips">${act.map(i=>{
+        const left = bombsLeft(g, calc, i);
+        const out = left === 0 && f.bomber !== i;
+        return `<button class="chip bomb" data-act="bomber" data-i="${i}" aria-pressed="${f.bomber===i}" ${out?"disabled style=opacity:.35":""}>${bombIcon(14)}${esc(g.players[i].name)}${left!==null?`<span class="val">${left}</span>`:""}</button>`;
+      }).join("")}</div>
+      <p class="hint" style="margin-top:9px">${bombed
+        ? `Rozdanie skasowane. ${esc(g.players[f.bomber].name)} zapisuje 0, reszta po ${g.settings.bombValue}. Stuknij ponownie, żeby cofnąć.`
+        : `Stuknij gracza, który rzucił bombę. Liczba obok to bomby, które mu zostały.`}</p>
+    </div>` : "";
+
+  const pointsField = `
+    <div class="sheet">
+      <h2>Punkty w rundzie</h2>
+      <div class="plist">${act.map(i=>`
+        <div class="prow">
+          <div class="name">${esc(g.players[i].name)}</div>
+          <input class="num" type="number" inputmode="numeric" value="${esc(f.points[i])}" placeholder="0" data-pt="${i}" ${bombed?"disabled":""}>
+        </div>`).join("")}</div>
+      <p class="hint" style="margin-top:10px">${isTys(g)
+        ? "Wpisz sumę na gracza — lewy razem z meldunkami. Nieugrany kontrakt zapisz na minusie, np. −120."
+        : "Możesz wpisywać wartości ujemne."}</p>
+    </div>`;
+
+  return `
+    ${sitOutField}
+    ${pointsField}
+    ${bombField}
+    <div class="sheet"><h2>Zapis</h2><div class="preview" id="preview">${previewInner(g,f)}</div></div>
+    <button class="btn gold" data-act="saveround">Zapisz rundę</button>
+    ${S.editIndex!=null?`<button class="btn danger sm" style="margin-top:10px" data-act="delround">Usuń tę rundę</button>`:""}`;
+}
+
+function previewInner(g, f){
+  const r = formToRound(g, f);
+  const d = deltasFor(g, r);
+  return activeIdx(g, f).map(i=>{
+    const note = (f.bomber === i) ? "rzucił bombę" : "";
+    return `<div class="p"><span>${esc(g.players[i].name)} <em>${note}</em></span><b class="${d[i]<0?"neg":""}">${d[i]>0?"+"+d[i]:d[i]}</b></div>`;
+  }).join("");
+}
+
+/* ====== render + zdarzenia ====== */
+function render(){
+  app.innerHTML = ({ home:viewHome, setup:viewSetup, game:viewGame, round:viewRound }[S.view] || viewHome)();
+  window.scrollTo(0,0);
+}
+function patchForm(){
+  const w = document.getElementById("formwrap");
+  if (w) w.innerHTML = roundFormInner(cur(), S.form);
+}
+function patchPreview(){
+  const p = document.getElementById("preview");
+  if (p) p.innerHTML = previewInner(cur(), S.form);
+}
+
+document.addEventListener("click", async (e)=>{
+  const b = e.target.closest("[data-act]");
+  if (!b || b.disabled) return;
+  const act = b.dataset.act, g = cur(), f = S.form;
+
+  if (act === "home"){ S.view="home"; S.gameId=null; return render(); }
+  if (act === "game"){ S.view="game"; S.form=null; S.editIndex=null; return render(); }
+  if (act === "new"){
+    S.draft = { type:"tysiac", players:new Array(GAMES.tysiac.defaultPlayers).fill(""), settings:{...GAMES.tysiac.settings} };
+    S.view="setup"; return render();
+  }
+  if (act === "type"){
+    const t = b.dataset.val, def = GAMES[t];
+    const p = S.draft.players.slice(0, def.maxPlayers);
+    while (p.length < def.defaultPlayers) p.push("");
+    S.draft = { type:t, players:p, settings:{...def.settings} };
+    return render();
+  }
+  if (act === "addpl"){ S.draft.players.push(""); return render(); }
+  if (act === "rmpl"){ S.draft.players.splice(+b.dataset.i,1); return render(); }
+  if (act === "start"){
+    const d = S.draft;
+    const game = { id:uid(), type:d.type, settings:{...d.settings}, rounds:[],
+      players:d.players.map((nm,i)=>({ name:(nm||"").trim() || "Gracz "+(i+1) })),
+      createdAt:Date.now(), updatedAt:Date.now(), finished:false };
+    S.games.push(game); S.gameId = game.id; S.view = "game";
+    await persist(); return render();
+  }
+  if (act === "open"){ S.gameId = b.dataset.id; S.view="game"; return render(); }
+  if (act === "reopen"){ g.finished = false; await persist(); return render(); }
+
+  if (act === "round"){ S.form = newForm(g); S.editIndex = null; S.view="round"; return render(); }
+  if (act === "sitout"){
+    f.sitOut = +b.dataset.i;
+    if (f.bomber === f.sitOut) f.bomber = null;
+    f.points[f.sitOut] = "";
+    return patchForm();
+  }
+  if (act === "bomber"){
+    const i = +b.dataset.i;
+    f.bomber = (f.bomber === i) ? null : i;
+    return patchForm();
+  }
+  if (act === "saveround"){
+    const r = formToRound(g, f);
+    if (S.editIndex != null) g.rounds[S.editIndex] = r; else g.rounds.push(r);
+    S.form = null; S.editIndex = null; S.view = "game";
+    await persist(); return render();
+  }
+  if (act === "delround"){
+    if (!confirm("Usunąć tę rundę? Sumy przeliczą się od nowa.")) return;
+    g.rounds.splice(S.editIndex, 1);
+    S.form = null; S.editIndex = null; S.view = "game";
+    await persist(); return render();
+  }
+});
+
+/* stuknięcie w wiersz rundy = edycja */
+document.addEventListener("click", (e)=>{
+  const tr = e.target.closest("tr[data-round]");
+  if (!tr || S.view !== "game") return;
+  const g = cur(), idx = +tr.dataset.round, r = g.rounds[idx];
+  const sitOut = isTys(g) && r.active ? g.players.map((_,i)=>i).find(i => !r.active.includes(i)) : null;
+  S.editIndex = idx;
+  S.form = { sitOut: sitOut === undefined ? null : sitOut,
+             bomber: (r.bomber != null && r.bomber >= 0) ? r.bomber : null,
+             points: g.players.map((_,i)=> r.points[i] ?? "") };
+  S.view = "round"; render();
+});
+
+document.addEventListener("input", (e)=>{
+  const t = e.target;
+  if (t.dataset.pl != null){ S.draft.players[+t.dataset.pl] = t.value; return; }
+  if (t.dataset.set != null){
+    const key = t.dataset.set, v = t.value;
+    if (key === "bombLimit") S.draft.settings.bombLimit = v === "null" ? null : +v;
+    else if (key === "endAt") S.draft.settings.endAt = v === "" ? null : +v;
+    else S.draft.settings[key] = +v || 0;
+    return;
+  }
+  if (t.dataset.pt != null){ S.form.points[+t.dataset.pt] = t.value; patchPreview(); }
+});
+
+document.addEventListener("click", (e)=>{
+  const b = e.target.closest("[data-set='winMode']");
+  if (!b || S.view !== "setup") return;
+  S.draft.settings.winMode = b.dataset.val;
+  render();
+});
+
+(async function init(){ S.games = await store.load(); render(); })();
+</script>
+</body>
+</html>
